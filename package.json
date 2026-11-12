@@ -2,11 +2,19 @@
   "name": "media-viewer",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.18.0",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.18.0"
+  },
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --hostname 127.0.0.1",
     "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "start": "next start --hostname 127.0.0.1",
+    "lint": "eslint --max-warnings=0",
+    "test": "node --experimental-strip-types --test tests/path-service.test.mjs tests/gallery-sort.test.mjs tests/image-cache.test.mjs",
+    "test:integration": "node --test tests/api.test.mjs"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",

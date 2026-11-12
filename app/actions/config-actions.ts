@@ -13,7 +13,8 @@ export async function checkConfig() {
 }
 
 export async function saveRootDirectory(formData: FormData) {
-  const rootDirectory = formData.get("rootDirectory") as string;
+  const value = formData.get("rootDirectory");
+  const rootDirectory = typeof value === "string" ? value.trim() : "";
 
   if (!rootDirectory) {
     return { error: "Path is required" };
@@ -23,7 +24,7 @@ export async function saveRootDirectory(formData: FormData) {
 
   if (!isValid) {
     return {
-      error: "Invalid path. Directory does not exist or is not accessible.",
+      error: "Enter an absolute path to an existing, accessible directory.",
     };
   }
 
