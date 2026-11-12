@@ -42,15 +42,18 @@ import {
 } from "@/components/ui/breadcrumb";
 import { SORT_OPTIONS } from "@/lib/gallery-sort";
 import type { SortDirection, SortField } from "@/lib/types";
+import type { FileTypeFilter } from "@/lib/media-formats";
 
-export type FileTypeFilter = "all" | "jpg" | "png" | "gif" | "webp" | "other";
+export type { FileTypeFilter } from "@/lib/media-formats";
 
 const FILE_FILTERS: { value: FileTypeFilter; label: string }[] = [
+  { value: "images", label: "Images" },
+  { value: "videos", label: "Videos" },
   { value: "jpg", label: "JPEG" },
   { value: "png", label: "PNG" },
   { value: "gif", label: "GIF" },
   { value: "webp", label: "WebP" },
-  { value: "other", label: "Other formats" },
+  { value: "other", label: "Other image formats" },
 ];
 
 interface GalleryHeaderProps {
@@ -132,7 +135,7 @@ export function GalleryHeader({
                   {pathParts.length === 0 ? (
                     <BreadcrumbPage className="flex items-center gap-2 font-medium">
                       <FolderOpen className="size-4 text-muted-foreground" />
-                      {viewMode === "flat" ? "All photos" : "Root"}
+                      {viewMode === "flat" ? "All media" : "Root"}
                     </BreadcrumbPage>
                   ) : (
                     <BreadcrumbLink asChild>
@@ -204,7 +207,7 @@ export function GalleryHeader({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem asChild>
-                  <Link href="/setup">Change photos folder</Link>
+                  <Link href="/setup">Change media folder</Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -214,7 +217,7 @@ export function GalleryHeader({
           <div className="relative min-w-36 flex-1 sm:max-w-72">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              aria-label="Search photos and folders"
+              aria-label="Search media and folders"
               placeholder="Search by filename..."
               value={searchQuery}
               onChange={(event) => onSearchChange(event.target.value)}
@@ -256,7 +259,7 @@ export function GalleryHeader({
                 checked={typeFilters.includes("all")}
                 onCheckedChange={() => toggleTypeFilter("all")}
               >
-                All formats
+                All media
               </DropdownMenuCheckboxItem>
               <DropdownMenuSeparator />
               {FILE_FILTERS.map(({ value, label }) => (
@@ -326,10 +329,10 @@ export function GalleryHeader({
               <TabsTrigger
                 value="flat"
                 className="gap-1.5 px-2.5"
-                aria-label="All photos"
+                aria-label="All media"
               >
                 <Images className="size-3.5" />
-                <span className="hidden sm:inline">All photos</span>
+                <span className="hidden sm:inline">All media</span>
               </TabsTrigger>
             </TabsList>
           </Tabs>

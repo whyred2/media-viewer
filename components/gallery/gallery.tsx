@@ -6,8 +6,8 @@ import { GalleryGrid } from "@/components/gallery/gallery-grid";
 import { GalleryHeader, type FileTypeFilter } from "@/components/gallery/gallery-header";
 import { Lightbox } from "@/components/gallery/lightbox";
 import { Button } from "@/components/ui/button";
-import type { FileItem } from "@/lib/services/file-service";
-import type { SortDirection, SortField, ViewMode } from "@/lib/types";
+import type { FileItem, MediaFile, SortDirection, SortField, ViewMode } from "@/lib/types";
+import { matchesFileType } from "@/lib/media-formats";
 import { parseSortDirection, parseSortField, sortGalleryItems } from "@/lib/gallery-sort";
 import { toast } from "sonner";
 import { Loader2, FolderOpen, SearchX, CircleAlert } from "lucide-react";
@@ -19,7 +19,7 @@ export function Gallery() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilters, setTypeFilters] = useState<FileTypeFilter[]>(["all"]);
   const activeRequest = useRef<AbortController | null>(null);
@@ -65,23 +65,12 @@ export function Gallery() {
     const query = searchQuery.trim().toLowerCase();
     return sortGalleryItems(items.filter((item) => {
       if (query && !item.name.toLowerCase().includes(query)) return false;
-      if (item.isDirectory || typeFilters.includes("all")) return true;
-      const extension = item.extension?.toLowerCase() || "";
-      return typeFilters.some((filter) => {
-        switch (filter) {
-          case "jpg": return extension === ".jpg" || extension === ".jpeg";
-          case "png": return extension === ".png";
-          case "gif": return extension === ".gif";
-          case "webp": return extension === ".webp";
-          case "other": return [".bmp", ".tiff", ".avif"].includes(extension);
-          default: return false;
-        }
-      });
+      return item.isDirectory || matchesFileType(item.name, typeFilters);
     }), sortBy, sortDirection);
   }, [items, searchQuery, typeFilters, sortBy, sortDirection]);
 
-  const images = useMemo(() => filteredItems.filter(
-    (item): item is FileItem & { extension: string } => !item.isDirectory && item.extension !== undefined
+  const media = useMemo(() => filteredItems.filter(
+    (item): item is FileItem & MediaFile => !item.isDirectory && item.extension !== undefined && item.mediaType !== undefined
   ), [filteredItems]);
 
   const updateSearchParams = (updates: Record<string, string | null>) => {
@@ -146,19 +135,19 @@ export function Gallery() {
             <div className="mb-1 flex size-16 items-center justify-center rounded-2xl bg-muted/60">
               {hasFilters ? <SearchX className="size-7 text-muted-foreground" /> : <FolderOpen className="size-7 text-muted-foreground" />}
             </div>
-            <h1 className="text-base font-medium">{hasFilters ? "No matching files" : "No photos here yet"}</h1>
-            <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">{hasFilters ? "Try another filename or clear the filters to see everything in this view." : "Choose another folder, or add some images to this one."}</p>
+            <h1 className="text-base font-medium">{hasFilters ? "No matching files" : "No media here yet"}</h1>
+            <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">{hasFilters ? "Try another filename or clear the filters to see everything in this view." : "Choose another folder, or add photos and videos to this one."}</p>
             {hasFilters && <Button variant="outline" size="sm" className="mt-2" onClick={() => { setSearchQuery(""); setTypeFilters(["all"]); }}>Clear filters</Button>}
           </div>
         ) : (
           <GalleryGrid
             key={`${viewMode}:${currentPath}`} items={filteredItems}
             onFolderClick={handleFolderClick}
-            onImageClick={(index) => { setCurrentImageIndex(index); setLightboxOpen(true); }}
+            onMediaClick={(index) => { setCurrentMediaIndex(index); setLightboxOpen(true); }}
           />
         )}
       </main>
-      <Lightbox images={images} currentIndex={currentImageIndex} isOpen={lightboxOpen} onClose={() => setLightboxOpen(false)} onIndexChange={setCurrentImageIndex} />
+      <Lightbox media={media} currentIndex={currentMediaIndex} isOpen={lightboxOpen} onClose={() => setLightboxOpen(false)} onIndexChange={setCurrentMediaIndex} />
     </div>
   );
 }

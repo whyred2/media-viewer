@@ -5,13 +5,14 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/compone
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { Button } from "@/components/ui/button";
 import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCw, Download, Info, Loader2, ImageOff } from "lucide-react";
-import { ImageInfoPanel } from "./image-info-panel";
-import type { ImageFile } from "@/lib/services/file-service";
+import { MediaInfoPanel } from "./media-info-panel";
+import type { MediaFile } from "@/lib/services/file-service";
 import { cn } from "@/lib/utils";
-import { getImageUrl } from "@/lib/image-url";
+import { getImageUrl, getMediaUrl } from "@/lib/image-url";
+import { VideoPlayer } from "./video-player";
 
 interface LightboxProps {
-  images: ImageFile[];
+  media: MediaFile[];
   currentIndex: number;
   isOpen: boolean;
   onClose: () => void;
@@ -19,12 +20,12 @@ interface LightboxProps {
 }
 
 export function Lightbox(props: LightboxProps) {
-  if (!props.isOpen || !props.images[props.currentIndex]) return null;
+  if (!props.isOpen || !props.media[props.currentIndex]) return null;
   // Unmounting the viewer resets transforms and the info panel on each opening.
-  return <ImageViewer {...props} />;
+  return <MediaViewer {...props} />;
 }
 
-function ImageViewer({ images, currentIndex, onClose, onIndexChange }: LightboxProps) {
+function MediaViewer({ media, currentIndex, onClose, onIndexChange }: LightboxProps) {
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -35,22 +36,23 @@ function ImageViewer({ images, currentIndex, onClose, onIndexChange }: LightboxP
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragStart = useRef({ x: 0, y: 0 });
   const lastWheelNavigation = useRef(0);
-  const currentImage = images[currentIndex];
-  const imageUrl = getImageUrl(currentImage.relativePath, currentImage.version, "original");
-  const previewUrl = getImageUrl(currentImage.relativePath, currentImage.version, "thumbnail", 192);
-  const retinaPreviewUrl = getImageUrl(currentImage.relativePath, currentImage.version, "thumbnail", 384);
+  const currentMedia = media[currentIndex];
+  const isVideo = currentMedia.mediaType === "video";
+  const imageUrl = getMediaUrl(currentMedia.relativePath, currentMedia.version, currentMedia.mediaType, "original");
+  const previewUrl = getMediaUrl(currentMedia.relativePath, currentMedia.version, currentMedia.mediaType, "thumbnail", 192);
+  const retinaPreviewUrl = getMediaUrl(currentMedia.relativePath, currentMedia.version, currentMedia.mediaType, "thumbnail", 384);
 
   useEffect(() => {
     // Keep the current image ahead of speculative work and limit large-file prefetches.
-    if (loadedPath !== imageUrl) return;
+    if (isVideo || loadedPath !== imageUrl) return;
     const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
     if (connection?.saveData) return;
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
       let budget = 24 * 1024 * 1024;
       for (const index of [currentIndex + 1, currentIndex - 1]) {
-        const neighbor = images[index];
-        if (!neighbor || neighbor.size > 16 * 1024 * 1024 || neighbor.size > budget) continue;
+        const neighbor = media[index];
+        if (!neighbor || neighbor.mediaType !== "image" || neighbor.size > 16 * 1024 * 1024 || neighbor.size > budget) continue;
         budget -= neighbor.size;
         void fetch(getImageUrl(neighbor.relativePath, neighbor.version, "original"), {
           signal: controller.signal, cache: "force-cache", priority: "low",
@@ -58,7 +60,7 @@ function ImageViewer({ images, currentIndex, onClose, onIndexChange }: LightboxP
       }
     }, 100);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [images, currentIndex, loadedPath, imageUrl]);
+  }, [media, currentIndex, loadedPath, imageUrl, isVideo]);
 
   const resetView = useCallback(() => {
     setZoom(1);
@@ -72,8 +74,8 @@ function ImageViewer({ images, currentIndex, onClose, onIndexChange }: LightboxP
   }, [currentIndex, onIndexChange, resetView]);
 
   const goToNext = useCallback(() => {
-    if (currentIndex < images.length - 1) { resetView(); onIndexChange(currentIndex + 1); }
-  }, [currentIndex, images.length, onIndexChange, resetView]);
+    if (currentIndex < media.length - 1) { resetView(); onIndexChange(currentIndex + 1); }
+  }, [currentIndex, media.length, onIndexChange, resetView]);
 
   const zoomIn = useCallback(() => setZoom((value) => Math.min(value * 1.5, 5)), []);
   const zoomOut = useCallback(() => {
@@ -84,22 +86,28 @@ function ImageViewer({ images, currentIndex, onClose, onIndexChange }: LightboxP
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.altKey || event.ctrlKey || event.metaKey || (event.target instanceof HTMLElement && event.target.matches("input, textarea, select, [contenteditable=true]"))) return;
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || (event.target instanceof HTMLElement && event.target.matches("input, textarea, select, [contenteditable=true]"))) return;
+      if (event.target instanceof HTMLElement) {
+        if (event.target.closest("[data-player-menu]")) return;
+        if (event.target.closest("[data-video-player]") && !["a", "d", "i"].includes(event.key.toLowerCase())) return;
+        if (event.target.closest("[data-player-fullscreen=true]")) return;
+      }
       switch (event.key.toLowerCase()) {
         case "a": case "arrowleft": event.preventDefault(); goToPrevious(); break;
         case "d": case "arrowright": event.preventDefault(); goToNext(); break;
-        case "+": case "=": event.preventDefault(); zoomIn(); break;
-        case "-": event.preventDefault(); zoomOut(); break;
-        case "0": event.preventDefault(); resetView(); break;
-        case "r": rotate(); break;
+        case "+": case "=": if (!isVideo) { event.preventDefault(); zoomIn(); } break;
+        case "-": if (!isVideo) { event.preventDefault(); zoomOut(); } break;
+        case "0": if (!isVideo) { event.preventDefault(); resetView(); } break;
+        case "r": if (!isVideo) rotate(); break;
         case "i": setInfoOpen((value) => !value); break;
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [goToPrevious, goToNext, zoomIn, zoomOut, rotate, resetView]);
+  }, [goToPrevious, goToNext, zoomIn, zoomOut, rotate, resetView, isVideo]);
 
   useEffect(() => {
+    if (isVideo) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const onWheel = (event: WheelEvent) => {
@@ -114,7 +122,7 @@ function ImageViewer({ images, currentIndex, onClose, onIndexChange }: LightboxP
     };
     canvas.addEventListener("wheel", onWheel, { passive: false });
     return () => canvas.removeEventListener("wheel", onWheel);
-  }, [goToPrevious, goToNext, zoomIn, zoomOut]);
+  }, [goToPrevious, goToNext, zoomIn, zoomOut, isVideo]);
 
   const iconButton = "shrink-0 text-zinc-300 hover:bg-white/10 hover:text-white disabled:opacity-25";
   const failed = failedPath === imageUrl;
@@ -124,28 +132,35 @@ function ImageViewer({ images, currentIndex, onClose, onIndexChange }: LightboxP
       <DialogContent
         className="flex! h-dvh! max-h-none! w-screen! max-w-none! flex-col gap-0! overflow-hidden rounded-none! border-0 bg-zinc-950 p-0! text-white shadow-none"
         showCloseButton={false}
-        onEscapeKeyDown={(event) => { if (infoOpen) { event.preventDefault(); setInfoOpen(false); } }}
+        onEscapeKeyDown={(event) => {
+          if (document.querySelector("[data-player-settings-open=true]")) {
+            event.preventDefault();
+          } else if (document.fullscreenElement?.matches("[data-video-player]")) {
+            event.preventDefault();
+            void document.exitFullscreen().catch(() => {});
+          } else if (infoOpen) { event.preventDefault(); setInfoOpen(false); }
+        }}
       >
         <VisuallyHidden>
-          <DialogTitle>{currentImage.name}</DialogTitle>
-          <DialogDescription>Use arrow keys to browse, plus and minus to zoom, and I for file information.</DialogDescription>
+          <DialogTitle>{currentMedia.name}</DialogTitle>
+          <DialogDescription>{isVideo ? "Use the video controls to play, seek, and adjust volume. Use the navigation buttons to browse your media." : "Use arrow keys to browse, plus and minus to zoom, and I for file information."}</DialogDescription>
         </VisuallyHidden>
         <div className="z-10 flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-zinc-950 px-3 py-2.5 sm:gap-4 sm:px-5">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium" title={currentImage.name}>{currentImage.name}</p>
-            <p className="mt-0.5 text-xs text-zinc-500 tabular-nums">{(currentIndex + 1).toLocaleString()} / {images.length.toLocaleString()}</p>
+            <p className="truncate text-sm font-medium" title={currentMedia.name}>{currentMedia.name}</p>
+            <p className="mt-0.5 text-xs text-zinc-500 tabular-nums">{(currentIndex + 1).toLocaleString()} / {media.length.toLocaleString()}</p>
           </div>
           <div className="flex items-center gap-0.5 sm:gap-1">
-            <div className="hidden items-center sm:flex">
+            {!isVideo && <div className="hidden items-center sm:flex">
               <Button variant="ghost" size="icon" className={iconButton} onClick={zoomOut} disabled={zoom <= 1} title="Zoom out (-)" aria-label="Zoom out"><ZoomOut className="size-4" /></Button>
               <Button variant="ghost" className={cn(iconButton, "min-w-16 px-2 text-xs tabular-nums")} onClick={resetView} title="Reset view (0)" aria-label="Reset view">{Math.round(zoom * 100)}%</Button>
               <Button variant="ghost" size="icon" className={iconButton} onClick={zoomIn} disabled={zoom >= 5} title="Zoom in (+)" aria-label="Zoom in"><ZoomIn className="size-4" /></Button>
               <span className="mx-2 h-4 w-px bg-white/10" />
-            </div>
-            <Button variant="ghost" size="icon" className={iconButton} onClick={rotate} title="Rotate (R)" aria-label="Rotate image"><RotateCw className="size-4" /></Button>
-            <Button variant="ghost" size="icon" className={cn(iconButton, infoOpen && "bg-white/10 text-white")} onClick={() => setInfoOpen((value) => !value)} title="File information (I)" aria-label="File information" aria-expanded={infoOpen} aria-controls="image-info-panel"><Info className="size-4" /></Button>
+            </div>}
+            {!isVideo && <Button variant="ghost" size="icon" className={iconButton} onClick={rotate} title="Rotate (R)" aria-label="Rotate image"><RotateCw className="size-4" /></Button>}
+            <Button variant="ghost" size="icon" className={cn(iconButton, infoOpen && "bg-white/10 text-white")} onClick={() => setInfoOpen((value) => !value)} title="File information (I)" aria-label="File information" aria-expanded={infoOpen} aria-controls="media-info-panel"><Info className="size-4" /></Button>
             <Button variant="ghost" size="icon" className={iconButton} asChild>
-              <a href={imageUrl} download={currentImage.name} title="Download original" aria-label="Download original"><Download className="size-4" /></a>
+              <a href={imageUrl} download={currentMedia.name} title="Download original" aria-label="Download original"><Download className="size-4" /></a>
             </Button>
             <span className="mx-1 h-4 w-px bg-white/10 sm:mx-2" />
             <Button variant="ghost" size="icon" className={iconButton} onClick={onClose} title="Close (Esc)" aria-label="Close viewer"><X className="size-5" /></Button>
@@ -167,7 +182,7 @@ function ImageViewer({ images, currentIndex, onClose, onIndexChange }: LightboxP
             onPointerUp={() => setIsDragging(false)}
             onPointerCancel={() => setIsDragging(false)}
           >
-            {failed ? (
+            {isVideo ? <VideoPlayer key={imageUrl} src={imageUrl} poster={retinaPreviewUrl} name={currentMedia.name} /> : failed ? (
               <div className="max-w-sm space-y-3 px-8 text-center text-zinc-400" role="alert">
                 <ImageOff className="mx-auto size-9 text-zinc-600" />
                 <p className="text-sm">This image could not be displayed.</p>
@@ -184,7 +199,7 @@ function ImageViewer({ images, currentIndex, onClose, onIndexChange }: LightboxP
                 )}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  key={imageUrl} src={imageUrl} alt={currentImage.name}
+                  key={imageUrl} src={imageUrl} alt={currentMedia.name}
                   decoding="async" fetchPriority="high"
                   className={cn("relative max-h-full max-w-full select-none object-contain", loadedPath !== imageUrl && "opacity-0", zoom > 1 ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in")}
                   style={{ transform: `translate(${position.x}px, ${position.y}px) scale(${zoom}) rotate(${rotation}deg)`, transition: isDragging ? "none" : "transform 150ms ease-out", touchAction: zoom > 1 ? "none" : "auto" }}
@@ -200,10 +215,10 @@ function ImageViewer({ images, currentIndex, onClose, onIndexChange }: LightboxP
                 />
               </>
             )}
-            <Button variant="ghost" size="icon" className={cn(iconButton, "absolute left-2 top-1/2 size-10 -translate-y-1/2 rounded-full border border-white/10 bg-zinc-950/60 sm:left-4")} onClick={goToPrevious} disabled={currentIndex === 0} title="Previous image (←)" aria-label="Previous image"><ChevronLeft className="size-5" /></Button>
-            <Button variant="ghost" size="icon" className={cn(iconButton, "absolute right-2 top-1/2 size-10 -translate-y-1/2 rounded-full border border-white/10 bg-zinc-950/60 sm:right-4")} onClick={goToNext} disabled={currentIndex === images.length - 1} title="Next image (→)" aria-label="Next image"><ChevronRight className="size-5" /></Button>
+            <Button variant="ghost" size="icon" className={cn(iconButton, "absolute left-2 top-1/2 size-10 -translate-y-1/2 rounded-full border border-white/10 bg-zinc-950/60 sm:left-4")} onClick={goToPrevious} disabled={currentIndex === 0} title="Previous file (←)" aria-label="Previous file"><ChevronLeft className="size-5" /></Button>
+            <Button variant="ghost" size="icon" className={cn(iconButton, "absolute right-2 top-1/2 size-10 -translate-y-1/2 rounded-full border border-white/10 bg-zinc-950/60 sm:right-4")} onClick={goToNext} disabled={currentIndex === media.length - 1} title="Next file (→)" aria-label="Next file"><ChevronRight className="size-5" /></Button>
           </div>
-          {infoOpen && <ImageInfoPanel key={currentImage.relativePath} relativePath={currentImage.relativePath} onClose={() => setInfoOpen(false)} />}
+          {infoOpen && <MediaInfoPanel key={currentMedia.version} relativePath={currentMedia.relativePath} mediaType={currentMedia.mediaType} onClose={() => setInfoOpen(false)} />}
         </div>
       </DialogContent>
     </Dialog>

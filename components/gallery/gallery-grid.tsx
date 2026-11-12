@@ -8,7 +8,7 @@ import type { FileItem } from "@/lib/services/file-service";
 interface GalleryGridProps {
   items: FileItem[];
   onFolderClick: (path: string) => void;
-  onImageClick: (index: number) => void;
+  onMediaClick: (index: number) => void;
 }
 
 const GAP = 12;
@@ -17,7 +17,7 @@ const MIN_TILE_WIDTH = 150;
 export function GalleryGrid({
   items,
   onFolderClick,
-  onImageClick,
+  onMediaClick,
 }: GalleryGridProps) {
   // TanStack Virtual exposes a mutable instance; keep this component unmemoized.
   "use no memo";
@@ -55,11 +55,11 @@ export function GalleryGrid({
     virtualizer.scrollToOffset(0);
   }, [virtualizer, items]);
 
-  const imageIndices = useMemo(() => {
+  const mediaIndices = useMemo(() => {
     const indices = new Map<string, number>();
-    let imageIndex = 0;
+    let mediaIndex = 0;
     for (const item of items) {
-      if (!item.isDirectory) indices.set(item.relativePath, imageIndex++);
+      if (!item.isDirectory) indices.set(item.relativePath, mediaIndex++);
     }
     return indices;
   }, [items]);
@@ -68,13 +68,13 @@ export function GalleryGrid({
     <div
       ref={parentRef}
       role="region"
-      aria-label="Photo gallery"
+      aria-label="Media gallery"
       className="h-full min-h-0 overflow-auto"
       style={{ scrollbarGutter: "stable" }}
     >
       {items.length === 0 ? (
         <div className="flex h-64 items-center justify-center text-muted-foreground">
-          <p>No images or folders found</p>
+          <p>No media or folders found</p>
         </div>
       ) : (
         <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
@@ -91,18 +91,19 @@ export function GalleryGrid({
               }}
             >
               {items.slice(row.index * columns, (row.index + 1) * columns).map((item) => (
-                <div key={item.relativePath} className="min-w-0">
+                <div key={`${item.relativePath}:${item.version}`} className="min-w-0">
                   <Thumbnail
                     relativePath={item.relativePath}
                     name={item.name}
                     version={item.version}
                     displayWidth={tileSize}
+                    mediaType={item.mediaType}
                     isDirectory={item.isDirectory}
                     onClick={() => {
                       if (item.isDirectory) {
                         onFolderClick(item.relativePath);
                       } else {
-                        onImageClick(imageIndices.get(item.relativePath)!);
+                        onMediaClick(mediaIndices.get(item.relativePath)!);
                       }
                     }}
                   />
