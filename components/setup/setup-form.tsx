@@ -55,14 +55,14 @@ export function SetupForm() {
         </div>
         <CardTitle className="text-2xl">Welcome to LocalGallery</CardTitle>
         <CardDescription>
-          Enter the path to your photos folder to get started
+          Enter the path to your photos and videos folder to get started
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form action={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <label htmlFor="rootDirectory" className="text-sm font-medium">
-              Photos Directory Path
+              Media Directory Path
             </label>
             <div className="relative">
               <Input

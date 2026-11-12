@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Folder } from "lucide-react";
+import { Folder, Film, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getImageUrl, getThumbnailWidth } from "@/lib/image-url";
+import { getMediaUrl, getThumbnailWidth } from "@/lib/image-url";
+import type { MediaType } from "@/lib/types";
 
 interface ThumbnailProps {
   relativePath: string;
@@ -11,6 +12,7 @@ interface ThumbnailProps {
   version: string;
   displayWidth: number;
   isDirectory?: boolean;
+  mediaType?: MediaType;
   onClick?: () => void;
 }
 
@@ -20,6 +22,7 @@ export function Thumbnail({
   version,
   displayWidth,
   isDirectory,
+  mediaType = "image",
   onClick,
 }: ThumbnailProps) {
   const [isLoading, setIsLoading] = useState(true);
@@ -42,8 +45,8 @@ export function Thumbnail({
   }
 
   const width = getThumbnailWidth(displayWidth);
-  const imageUrl = getImageUrl(relativePath, version, "thumbnail", width);
-  const retinaUrl = getImageUrl(relativePath, version, "thumbnail", getThumbnailWidth(width * 2));
+  const imageUrl = getMediaUrl(relativePath, version, mediaType, "thumbnail", width);
+  const retinaUrl = getMediaUrl(relativePath, version, mediaType, "thumbnail", getThumbnailWidth(width * 2));
 
   return (
     <button
@@ -79,9 +82,14 @@ export function Thumbnail({
           )}
         </>
       ) : (
-        <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
-          <span className="text-xs">Failed to load</span>
+        <div className="absolute inset-0 flex flex-col gap-2 items-center justify-center text-muted-foreground">
+          {mediaType === "video" ? <><Film className="size-9" /><span className="text-xs">Video</span></> : <span className="text-xs">Failed to load</span>}
         </div>
+      )}
+      {mediaType === "video" && (
+        <span aria-hidden="true" className="absolute top-2 left-2 flex items-center gap-1 rounded-md bg-black/60 px-2 py-1 text-[10px] font-medium tracking-wide text-white backdrop-blur-sm">
+          <Play className="size-3 fill-current" />VIDEO
+        </span>
       )}
       <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/75 to-transparent px-3 pt-8 pb-3 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity">
         <p className="text-xs text-white truncate">{name}</p>

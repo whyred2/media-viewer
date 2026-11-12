@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getConfig } from "@/lib/services/config-service";
-import { scanDirectory, scanAllImages } from "@/lib/services/file-service";
+import { scanDirectory, scanAllMedia } from "@/lib/services/file-service";
 
 export const dynamic = "force-dynamic";
 
@@ -24,8 +24,8 @@ export async function GET(request: NextRequest) {
     }
 
     if (mode === "flat") {
-      const images = await scanAllImages(config.rootDirectory, relativePath);
-      return NextResponse.json({ items: images, mode: "flat" });
+      const media = await scanAllMedia(config.rootDirectory, relativePath);
+      return NextResponse.json({ items: media, mode: "flat" });
     } else {
       const items = await scanDirectory(config.rootDirectory, relativePath);
       return NextResponse.json({

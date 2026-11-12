@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "LocalGallery",
-  description: "Browse your local photo collection",
+  description: "Browse your local photos and videos",
 };
 
 export default function RootLayout({

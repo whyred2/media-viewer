@@ -4,10 +4,21 @@ export interface FileMetadata {
   version: string;
 }
 
-export interface GalleryImage extends FileMetadata {
+export type MediaType = "image" | "video";
+
+export interface MediaFile extends FileMetadata {
   name: string;
   relativePath: string;
   extension: string;
+  mediaType: MediaType;
+}
+
+export interface FileItem extends FileMetadata {
+  name: string;
+  relativePath: string;
+  isDirectory: boolean;
+  extension?: string;
+  mediaType?: MediaType;
 }
 
 export interface FolderItem extends FileMetadata {
@@ -16,7 +27,7 @@ export interface FolderItem extends FileMetadata {
   isDirectory: true;
 }
 
-export type GalleryItem = GalleryImage | FolderItem;
+export type GalleryItem = MediaFile | FolderItem;
 
 export type ViewMode = "folder" | "flat";
 
@@ -31,4 +42,10 @@ export interface ImageInfo {
   width: number | null;
   height: number | null;
   modifiedAt: string;
+}
+
+export interface VideoInfo extends ImageInfo {
+  duration: number | null;
+  videoCodec: string | null;
+  frameRate: number | null;
 }
