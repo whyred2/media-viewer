@@ -4,6 +4,8 @@ import { Gallery } from "@/components/gallery/gallery";
 import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export default async function HomePage() {
   const config = await getConfig();
 

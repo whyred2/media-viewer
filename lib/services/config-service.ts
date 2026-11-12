@@ -5,7 +5,8 @@ export interface AppConfig {
   rootDirectory: string | null;
 }
 
-const CONFIG_FILE = path.join(process.cwd(), "config.json");
+// A separate profile also allows testing without changing the user's gallery.
+const CONFIG_FILE = path.resolve(process.env.LOCAL_GALLERY_CONFIG || "config.json");
 
 const defaultConfig: AppConfig = {
   rootDirectory: null,
@@ -15,7 +16,12 @@ export async function getConfig(): Promise<AppConfig> {
   try {
     if (await fs.pathExists(CONFIG_FILE)) {
       const config = await fs.readJson(CONFIG_FILE);
-      return { ...defaultConfig, ...config };
+      return {
+        rootDirectory:
+          typeof config?.rootDirectory === "string" && path.isAbsolute(config.rootDirectory)
+            ? config.rootDirectory
+            : null,
+      };
     }
   } catch (error) {
     console.error("Error reading config:", error);
@@ -39,6 +45,7 @@ export async function setConfig(
 
 export async function validatePath(dirPath: string): Promise<boolean> {
   try {
+    if (!path.isAbsolute(dirPath)) return false;
     const stats = await fs.stat(dirPath);
     return stats.isDirectory();
   } catch {
